@@ -9,7 +9,7 @@ def list_apps():
         return found
     for folder in sorted(APPS_DIR.iterdir()):
         manifest = folder / "app.json"
-        if folder.is_dir() and manifest.is_file():
+        if folder.is_dir() and not folder.name.startswith("_") and manifest.is_file():
             try:
                 data = json.loads(manifest.read_text(encoding="utf-8"))
                 if data.get("name") and (folder / "app.py").is_file():
