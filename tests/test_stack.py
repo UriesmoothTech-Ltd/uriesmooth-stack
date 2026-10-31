@@ -173,3 +173,69 @@ def test_concurrent_workers_claim_unique_jobs(
     assert stats["succeeded"] == job_count
     assert stats["running"] == 0
     assert stats["pending"] == 0
+
+
+def test_worker_loop_does_not_claim_after_shutdown(monkeypatch):
+    import threading
+    import alphauriel_pascal.worker as worker
+
+    stop_event = threading.Event()
+    stop_event.set()
+
+    def unexpected_job():
+        raise AssertionError(
+            "Worker must not claim a job after shutdown"
+        )
+
+    monkeypatch.setattr(
+        worker,
+        "process_one",
+        unexpected_job,
+    )
+
+    worker.worker_loop(
+        stop_event,
+        poll_seconds=1,
+    )
+
+
+def test_worker_loop_stops_after_current_iteration(monkeypatch):
+    import threading
+    import alphauriel_pascal.worker as worker
+
+    stop_event = threading.Event()
+    calls = []
+
+    def complete_current_iteration():
+        calls.append(True)
+        stop_event.set()
+        return True
+
+    monkeypatch.setattr(
+        worker,
+        "process_one",
+        complete_current_iteration,
+    )
+
+    worker.worker_loop(
+        stop_event,
+        poll_seconds=1,
+    )
+
+    assert len(calls) == 1
+
+
+def test_shutdown_signal_sets_stop_event():
+    import threading
+    import signal
+    from alphauriel_pascal.worker import _request_shutdown
+
+    stop_event = threading.Event()
+
+    _request_shutdown(
+        signal.SIGTERM,
+        None,
+        stop_event,
+    )
+
+    assert stop_event.is_set()
